@@ -5,13 +5,16 @@ import os
 class FileAsset:
     def validate(config):
         validated = False
-        if 'text' in config: 
-            if 'filepath' in config:
-                validated = True
+        try:
+            if 'text' in config: 
+                if 'filepath' in config:
+                    validated = True
+                else:
+                    print(f"Missing filepath field in config: {config}")
             else:
-                print(f"Missing filepath field in config: {config}")
-        else:
-            print(f"Missing text field in config: {config}")
+                print(f"Missing text field in config: {config}")
+        except Exception as e:
+            print(f"Error validating asset with config: {config}. Error:  {e.__class__}, {e}")
 
         return validated
 
@@ -29,18 +32,26 @@ class FileAsset:
                 asset_in_sync = True
             else:
                 print(f"Asset with ID: {filepath} out of sync with config: {config}")
+
         except Exception as e:
             print(f"Error checking asset state with ID: {filepath}. Error:  {e.__class__}, {e}")
 
         return asset_in_sync
 
     def create(config):
-        text = config['text']
-        filepath = config['filepath']
-        print(f"Writing text: {text} to filepath: {filepath}...")
-        with open(filepath, 'w+') as f:
-            f.write(text)
-        return filepath
+        asset_id = ''
+        try:
+            text = config['text']
+            filepath = config['filepath']
+            print(f"Writing text: {text} to filepath: {filepath}...")
+            with open(filepath, 'w+') as f:
+                f.write(text)
+            asset_id = filepath
+
+        except Exception as e:
+            print(f"Error creating asset with config: {config}. Error: {e.__class__}, {e}")
+
+        return asset_id
 
     def delete(filepath):
         deleted_successfully = False
