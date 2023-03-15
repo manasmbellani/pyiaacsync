@@ -11,16 +11,23 @@ class AssetNotCreatedException(Exception):
     pass
 
 class AssetNotDeletedException(Exception):
+    """Exception generated when an asset is not deleted
+    """
     pass
 
 class FileNotFoundException(Exception):
+    """Exception generated when a file has not been found
+    """
     pass
 
 class ConfigFileInvalidSyntax(Exception):
+    """Exception generated when an invalid config gets merged
+    """
     pass
 
 class IaacSync:
-    def __init__(self, iaac_sync_folder, state_file, asset, conf_file_extensions=CONFIG_FILE_EXTENSIONS, init=False, delete_all=False):
+    def __init__(self, iaac_sync_folder, state_file, asset, conf_file_extensions=CONFIG_FILE_EXTENSIONS, 
+            init=False, delete_all_only=False, validate_configs_only=False):
         self.iaac_sync_folder = iaac_sync_folder
         self.state_file = state_file
         self.asset = asset
@@ -28,8 +35,10 @@ class IaacSync:
         self.state = {}
         if init:
             self.init_state()
-        if delete_all:
+        if delete_all_only:
             self.__delete_assets()
+        elif validate_configs_only:
+            self.__validate_configs()
         else:
             self.__sync_assets()
 
@@ -62,18 +71,38 @@ class IaacSync:
             if self.state:
                 state_config_paths = list(self.state.keys())
                 for config_path in state_config_paths:
-                    asset_id = self.state['config_path'].get('asset_id', None)
+                    asset_id = self.state[config_path].get('asset_id', None)
                     if self.asset.delete(asset_id):
                         # Remove the asset tracking from the state since it is no longer being tracked in git
                         del self.state[config_path]
+                        
+            self.write_state()
 
+    def __validate_configs(self):
 
+        # Loop through each config fie in the IAAC Sync folder
+        for dir_path, _, files in os.walk(self.iaac_sync_folder):
+            for f in files:
+                config_path = os.path.join(dir_path, f)
+
+                # Read the config from file
+                config = ''
+                try:
+                    with open(config_path, "r") as f:
+                        config = yaml.safe_load(f)
+                except Exception as e:
+                    raise ConfigFileInvalidSyntax(f"Config file: {config_path} syntax invalid. Error: {e.__class__}, {e}")
+
+                # Validate whether the config is correctly provided before syncing
+                if config:
+                    self.asset.validate(config)
+                    
     def __sync_assets(self):
         """Sync assets by comparing the file hashes of config file and recreating file
 
         Raises:
             FileNotFoundException: When the state file is not found
-            ConfigFileInvalidSyntax: If config file path was invalid
+            ConfigFileInvalidSyntax: If config spec file's content is deemed invalid
         """
         all_config_files = []
         
@@ -106,22 +135,25 @@ class IaacSync:
                                 'hash': '',
                             }
 
-                         # Read the config from file
+                        # Read the config from file
                         config = ''
-                        with open(config_path, "r") as f:
-                            config = yaml.safe_load(f)
+                        try:
+                            with open(config_path, "r") as f:
+                                config = yaml.safe_load(f)
+                        except Exception as e:
+                            raise ConfigFileInvalidSyntax(f"Config file: {config_path} syntax invalid. Error: {e.__class__}, {e}")
 
                         # Validate whether the config is correctly provided before syncing
-                        if self.asset.validate(config):
-                            
-                            # If the spec file has changed OR is brand new, then create the asset again
-                            is_asset_in_sync = True
-                            if asset_id:
-                                is_asset_in_sync = self.asset.check(asset_id, config)
+                        if config:
+                            if self.asset.validate(config):
+                                
+                                # If the spec file has changed OR is brand new, then create the asset again
+                                is_asset_in_sync = True
+                                if asset_id:
+                                    is_asset_in_sync = self.asset.check(asset_id, config)
 
-                            if (not state_hash) or (state_hash != config_hash) or not is_asset_in_sync:
+                                if (not state_hash) or (state_hash != config_hash) or not is_asset_in_sync:
 
-                                try:
                                     # Recreate the asset
                                     asset_id =  self.__recreate_asset(config_path, asset_id, config)
 
@@ -130,13 +162,14 @@ class IaacSync:
                                         self.state[config_path]['hash'] = config_hash
                                         self.state[config_path]['asset_id'] = asset_id 
 
-                                except Exception as e:
-                                    raise ConfigFileInvalidSyntax(f"Config file: {config_path} syntax invalid. Error: {e.__class__}, {e}")
-
-
+            # Delete any assets which are not in the config spec (git)
             if self.state:
+
+                # Read all the config spec keys and loop through them
                 state_config_paths = list(self.state.keys())
                 for config_path in state_config_paths:
+
+                    # Check if any are not in the config specs
                     if config_path not in all_config_files:
                         asset_id = self.state[config_path].get('asset_id', None)
                         if asset_id:
