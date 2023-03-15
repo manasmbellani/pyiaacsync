@@ -84,7 +84,6 @@ class IaacSync:
 
                 for f in files:
                     
-
                     # Work only with the conf files
                     if any([f.endswith(ext) for ext in self.conf_file_extensions]):
                         
@@ -107,13 +106,22 @@ class IaacSync:
                                 'hash': '',
                             }
 
-                        if (not state_hash) or (state_hash != config_hash):
-                            # Read the config from file
-                            try:
-                                config = ''
-                                with open(config_path, "r") as f:
-                                    config = yaml.safe_load(f)
+                         # Read the config from file
+                        config = ''
+                        with open(config_path, "r") as f:
+                            config = yaml.safe_load(f)
 
+                        # Validate whether the config is correctly provided before syncing
+                        if self.asset.validate(config):
+                            
+                            # If the spec file has changed OR is brand new, then create the asset again
+                            is_asset_in_sync = True
+                            if asset_id:
+                                is_asset_in_sync = self.asset.check(asset_id, config)
+
+                            if (not state_hash) or (state_hash != config_hash) or not is_asset_in_sync:
+
+                                try:
                                     # Recreate the asset
                                     asset_id =  self.__recreate_asset(config_path, asset_id, config)
 
@@ -122,8 +130,9 @@ class IaacSync:
                                         self.state[config_path]['hash'] = config_hash
                                         self.state[config_path]['asset_id'] = asset_id 
 
-                            except Exception as e:
-                                raise ConfigFileInvalidSyntax(f"Config file: {config_path} syntax invalid. Error: {e.__class__}, {e}")
+                                except Exception as e:
+                                    raise ConfigFileInvalidSyntax(f"Config file: {config_path} syntax invalid. Error: {e.__class__}, {e}")
+
 
             if self.state:
                 state_config_paths = list(self.state.keys())
