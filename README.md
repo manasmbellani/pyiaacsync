@@ -20,12 +20,65 @@ Software engineers need to create the following:
 Please see `Usage` section that describes the example in more detail
 
 ## Install
+Install all necessary dependencies as follows:
 ```
 python3 -m pip install -r requirements.txt
 ```
 
 ## Usage
-We will be using the example described in the `example` folder.
+
+### Structure
+We will be using the example described in the `example` folder of this repository. Users of this repo can use the files in the `example` folder (especially `fileasset.py`) to build their own assets with `pyiaacsync.py`.
+
+In this repository, we have the following objects:
+- `exampleconf`: a folder which contains 3 spec/config files (1 file is in a subfolder) that describe what kind of file to create
+- `fileasset.py`: A python file that contains the fileasset which defines how to `validate` the spec config file, `create` asset from the spec / config file, `delete` the existing asset created from the config file and also `check` if the the created asset is different from the config file
+- `example.py`: the main script which will invoke the creation of assets using pyiaacsync conf file
+
+### Actions
+
+#### init
+The first steps is to execute `init` which will create a new state file `out-teststate.yaml`:
+```
+python3 example.py -a init
+```
+
+To force re-creation of the state file even if it exists (NOTE: Beware this will delete the existing state file!):
+```
+python3 example.py -a init -if
+```
+
+We can also specify an existing state file to use:
+```
+python3 example.py -a init -if -f /tmp/out-teststatefile.yaml
+```
+
+#### validate_configs
+
+To validate the configs in the spec folder for all existing assets using the `validate` function defined in `fileasset.py` class:
+```
+python3 example.py -a validate_configs
+```
+
+#### sync
+
+To sync the assets based on the spec/configs folder continuously - this will create the files as per the configs in the folder.
+Any changes made to the files the next time will be reset.
+```
+python3 example.py -a sync
+```
+
+To sync the assets once only:
+```
+python3 example.py -a sync_once
+```
+
+#### delete_assets
+
+To delete all existing assets (in this case, all files) and remove the assets from the state file:
+```
+python3 example.py -a delete_assets
+```
 
 ## TODO
-Create a python package to put into PyPI
+- Create a python package for pyiaacsync to add to PyPI
