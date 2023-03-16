@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import iaacsync
 import os
 
 class FileAsset:
@@ -119,6 +118,3 @@ class FileAsset:
             print(f"Error deleting file: {asset_id}. Error: {e.__class__}, {e}")
 
         return deleted_successfully
-
-if __name__ == "__main__":
-    i = iaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset)
