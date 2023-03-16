@@ -26,8 +26,23 @@ class ConfigFileInvalidSyntax(Exception):
     pass
 
 class IaacSync:
+    """Class used for deploying and syncing IAAC assets defined in an IAAC Sync folder (`iaac_sync_folder`) (e.g. a folder managed via git 
+    for version control) that contains various configs describing how to create assets using the `asset` functions
+    """
     def __init__(self, iaac_sync_folder, state_file, asset, conf_file_extensions=CONFIG_FILE_EXTENSIONS, 
             init=False, delete_all_only=False, validate_configs_only=False):
+        """Function to sync spec configs defined in IAAC Sync folder 
+
+        Args:
+            iaac_sync_folder (str): The IAAC Sync folder path which contains the spec for asset to create
+            state_file (str): The path of the state which will be used for syncing the assets
+            asset (object): A class that represents the asset to sync. The asset is an class which defines the validate, check, 
+                create, delete methods
+            conf_file_extensions (list, optional): List of extensions in iaac_sync_folder. Defaults to CONFIG_FILE_EXTENSIONS.
+            init (bool, optional): Initialize the state file only. Defaults to False.
+            delete_all_only (bool, optional): Delete all the assets that have been created and clean the state file. Defaults to `False`.
+            validate_configs_only (bool, optional): _description_. Defaults to False.
+        """
         self.iaac_sync_folder = iaac_sync_folder
         self.state_file = state_file
         self.asset = asset
@@ -63,10 +78,12 @@ class IaacSync:
                 self.state = yaml.safe_load(f)
                 was_state_read = True
         else:
-            raise FileNotFoundException(f"State file: {self.state_file} not found. Was init?")
+            raise FileNotFoundException(f"State file: {self.state_file} not found. Was init run?")
         return was_state_read
 
     def __delete_assets(self):
+        """Delete all the assets that have been previously created, and update state file
+        """
         if self.read_state():
             if self.state:
                 state_config_paths = list(self.state.keys())
@@ -79,6 +96,11 @@ class IaacSync:
             self.write_state()
 
     def __validate_configs(self):
+        """Simply validate ALL configurations that exist in config files in IAAC Sync folder
+
+        Raises:
+            ConfigFileInvalidSyntax: A config in the state file is not accurate
+        """
 
         # Loop through each config fie in the IAAC Sync folder
         for dir_path, _, files in os.walk(self.iaac_sync_folder):
@@ -118,14 +140,16 @@ class IaacSync:
                         
                         config_path = os.path.join(dir_path, f)
 
+                        # Keep track of ALL the asset config files
                         all_config_files.append(config_path)
 
+                        # Calculate the hash for config which will be checked to see if they have changed
                         config_hash = self.__calculate_hash(config_path)
                         state_conf = self.state.get(config_path, None)
                         
+                        # Get the hash of existing assets. If it doesn't exist then 
                         state_hash = ''
                         asset_id = ''
-
                         if state_conf:
                             state_hash = state_conf['hash']
                             asset_id = state_conf['asset_id']
@@ -147,11 +171,12 @@ class IaacSync:
                         if config:
                             if self.asset.validate(config):
                                 
-                                # If the spec file has changed OR is brand new, then create the asset again
+                                # Checking if the asset that currently exists matches the config in 'git'
                                 is_asset_in_sync = True
                                 if asset_id:
                                     is_asset_in_sync = self.asset.check(asset_id, config)
 
+                                # If the spec file has changed OR is brand new, then create the asset again
                                 if (not state_hash) or (state_hash != config_hash) or not is_asset_in_sync:
 
                                     # Recreate the asset
