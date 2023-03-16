@@ -20,6 +20,11 @@ class FileNotFoundException(Exception):
     """
     pass
 
+class FileAlreadyExists(Exception):
+    """Exception generated when a file already exists
+    """
+    pass
+
 class ConfigFileInvalidSyntax(Exception):
     """Exception generated when an invalid config gets merged
     """
@@ -30,7 +35,7 @@ class IaacSync:
     for version control) that contains various configs describing how to create assets using the `asset` functions
     """
     def __init__(self, iaac_sync_folder, state_file, asset, conf_file_extensions=CONFIG_FILE_EXTENSIONS, 
-            init=False, delete_all_only=False, validate_configs_only=False):
+            init=False, init_force=False, init_state_file=None, delete_all_only=False, validate_configs_only=False):
         """Function to sync spec configs defined in IAAC Sync folder 
 
         Args:
@@ -40,6 +45,8 @@ class IaacSync:
                 create, delete methods
             conf_file_extensions (list, optional): List of extensions in iaac_sync_folder. Defaults to CONFIG_FILE_EXTENSIONS.
             init (bool, optional): Initialize the state file only. Defaults to False.
+            init_state_file (str, optional): An optional initial state file to use when performing initialize. Defaults to None.
+            init_force (bool, optional): Force initialization even if init file exists. Defaults to False.
             delete_all_only (bool, optional): Delete all the assets that have been created and clean the state file. Defaults to `False`.
             validate_configs_only (bool, optional): _description_. Defaults to False.
         """
@@ -49,19 +56,38 @@ class IaacSync:
         self.conf_file_extensions = conf_file_extensions
         self.state = {}
         if init:
-            self.init_state()
-        if delete_all_only:
+            self.init_state(init_state_file, init_force)
+        elif delete_all_only:
             self.__delete_assets()
         elif validate_configs_only:
             self.__validate_configs()
         else:
             self.__sync_assets()
 
-    def init_state(self):
-        """Create a new state file
+    def init_state(self, init_state_file=None, init_force=False):
+        """Create a new state file, or use an existing state file if it exists
+        
+        Args:
+            init_state_file (str, optional): Path to Initial stae file to use, if any. Defaults to None
+            init_force (bool, optional): Force initialization even if init file already exists. 
         """
-        with open(self.state_file, "w") as f:
-            f.write('{}')
+        if init_state_file:
+            if os.path.isfile(init_state_file):
+                if (not os.path.isfile(self.state_file)) or (init_force and os.path.isfile(self.state_file)):
+                    with open(init_state_file, 'r') as f1:
+                        with open(self.state_file, "w") as f2:
+                            f.write(f1.read())
+                else:
+                    raise FileAlreadyExists(f"State file: {self.state_file} already exists. Use `init_force` flag to force re-creation")
+            else:
+                raise FileNotFoundException(f"Init state file: {init_state_file} not found")
+        else:
+            # Create a new state file
+            if (not os.path.isfile(self.state_file)) or (init_force and os.path.isfile(self.state_file)):
+                with open(self.state_file, "w") as f:
+                    f.write('{}')
+            else:
+                raise FileAlreadyExists(f"State file: {self.state_file} already exists. Use `init_force` flag to force re-creation")
 
     def write_state(self):
         """Write the state to state file
