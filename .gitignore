@@ -131,3 +131,6 @@ dmypy.json
 # Ignore outfiles
 **/out-*
 **/out_*
+
+# Ignore pypi auth file
+**/.pypirc

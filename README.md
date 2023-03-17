@@ -28,9 +28,9 @@ python3 -m pip install -r requirements.txt
 ## Usage
 
 ### Structure
-We will be using the example described in the `example` folder of this repository. Users of this repo can use the files in the `example` folder (especially `fileasset.py`) to build their own assets with `pyiaacsync.py`.
+We will be using the example `example-fileasset` described in the `examples` folder of this repository. Users of this repo can use the files in the `examples` folder (especially `fileasset.py`) to build their own assets with `pyiaacsync.py`.
 
-In this repository, we have the following objects:
+In this folder, we have the following objects:
 - `exampleconf`: a folder which contains 3 spec/config files (1 file is in a subfolder) that describe what kind of file to create
 - `fileasset.py`: A python file that contains the fileasset which defines how to `validate` the spec config file, `create` asset from the spec / config file, `delete` the existing asset created from the config file and also `check` if the the created asset is different from the config file
 - `example.py`: the main script which will invoke the creation of assets using pyiaacsync conf file
@@ -81,4 +81,4 @@ python3 example.py -a delete_assets
 ```
 
 ## TODO
-- Create a python package for pyiaacsync to add to PyPI
+- Add unit testing

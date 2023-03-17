@@ -40,31 +40,31 @@ if __name__ == "__main__":
     # Include the IAAC Sync class
     parent_dir = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
     sys.path.append(parent_dir)    
-    import iaacsync
+    from pyiaacsync import pyiaacsync
 
     # Execute Iaac Sync and display any exceptions generated 
     try:
         if args.action == 'init':
 
             if args.init_state_file:
-                i = iaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset, init=True, 
+                i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset, init=True, 
                         init_force=args.init_force, init_state_file=args.init_state_file)
             else:
-                i = iaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset, init=True,
+                i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset, init=True,
                         init_force=args.init_force)
 
         elif args.action == 'delete_assets':
-            i = iaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset, delete_all_only=True)
+            i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset, delete_all_only=True)
         
         elif args.action == 'validate_configs':
-            i = iaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset, validate_configs_only=True)
+            i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset, validate_configs_only=True)
 
         elif args.action == 'sync_once':
-            i = iaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset)
+            i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset)
 
         elif args.action == 'sync': 
             while True:
-                i = iaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset)
+                i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset)
 
                 print(f"Waiting for a second before resyncing...")
                 time.sleep(1)
