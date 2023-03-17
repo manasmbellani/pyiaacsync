@@ -20,6 +20,14 @@ Software engineers need to create the following:
 Please see `Usage` section that describes the example in more detail
 
 ## Install
+
+### via PyPI
+
+```
+python3 -m pip install pyiaacsync
+```
+
+### Manually
 Install all necessary dependencies as follows:
 ```
 python3 -m pip install -r requirements.txt
