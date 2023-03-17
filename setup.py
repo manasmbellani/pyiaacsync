@@ -4,9 +4,15 @@ from setuptools import setup, find_packages
 with open('requirements.txt', 'r') as f:
     requirements = f.read().splitlines()
 
+# Read the description from the markdown file
+with open('README.md', 'r') as f:
+    description = f.read().splitlines()
+
 setup(
     name="pyiaacsync",
-    version="0.1",
+    version="0.2",
     packages=find_packages(),
     install_requires=requirements,
+    long_description=description,
+    long_description_content_type="text/markdown"
 )
