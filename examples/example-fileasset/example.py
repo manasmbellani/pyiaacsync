@@ -38,7 +38,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Include the IAAC Sync class
-    parent_dir = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
+    parent_dir = os.path.abspath(os.path.join(os.getcwd(), os.pardir, os.pardir))
     sys.path.append(parent_dir)    
     from pyiaacsync import pyiaacsync
 
