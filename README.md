@@ -43,6 +43,15 @@ In this folder, we have the following objects:
 - `fileasset.py`: A python file that contains the fileasset which defines how to `validate` the spec config file, `create` asset from the spec / config file, `delete` the existing asset created from the config file and also `check` if the the created asset is different from the config file
 - `example.py`: the main script which will invoke the creation of assets using pyiaacsync conf file
 
+Note that `pyiaacsync` also has an `args` option available in `__init__` which can be used to provide any additional optional 
+parameters as a dict that can be used by the asset class. Uncomment the `random_args` set line in `example.py` to see how it can be used:
+```
+...
+    random_args = {}
+    ## uncomment line below to demonstrate how the random arguments can work
+    #random_args = {'message': 'hello world'}
+```
+
 ### Actions
 
 #### init

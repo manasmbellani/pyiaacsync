@@ -11,16 +11,21 @@ class FileAsset:
         text: <What text should be present in the file>
         ```
     """
-    def validate(config):
+    def validate(config, **args):
         """Custom method to validate whether the syntax of the config file provided is correct
 
         Args:
             config (dict): Configuration/Spec describing the asset
+            args (dict): Adding optional arguments
 
         Returns:
             bool: Whether the syntax of the spec config file is correct 
         """
         validated = False
+
+        if 'message' in args:
+            print(f"Printing optional message: {args['message']}")
+
         try:
             if 'text' in config: 
                 if 'filepath' in config:
@@ -34,7 +39,7 @@ class FileAsset:
 
         return validated
 
-    def check(asset_id, config):
+    def check(asset_id, config, **args):
         """Custom method for integrity checking aka check whether the current with asset ID (`asset_id`) 
         has same config as the spec/config provided as assets could be changed in the background without
         updating the IAAC Sync folder (source of truth). 
@@ -49,6 +54,7 @@ class FileAsset:
         Args:
             asset_id (str): Unique identifier identifying the asset which was built
             config (dict): Configuration/Spec (source of truth)
+            args (dict): Adding optional arguments
 
         Returns:
             bool: Whether the asset is in sync (aka matches the config provided) 
@@ -57,6 +63,10 @@ class FileAsset:
         
         current_text = ''
         current_filepath = ''
+
+        if 'message' in args:
+            print(f"Printing optional message: {args['message']}")
+
         try:
             with open(asset_id, 'r+') as f:
                 current_text = f.read()
@@ -72,17 +82,22 @@ class FileAsset:
 
         return asset_in_sync
 
-    def create(config):
+    def create(config, **args):
         """Custom method to create the asset based on the config provided
 
         Args:
             asset_id (str): Unique identifier identifying the asset which was built
             config (dict): Configuration/Spec (source of truth)
+            args (dict): Adding optional arguments
 
         Returns:
             bool: Whether the syntax of the spec config file is correct 
         """
         asset_id = ''
+
+        if 'message' in args:
+            print(f"Printing optional message: {args['message']}")
+
         try:
             text = config['text']
             filepath = config['filepath']
@@ -96,16 +111,21 @@ class FileAsset:
 
         return asset_id
 
-    def delete(asset_id):
+    def delete(asset_id, **args):
         """Custom method to deleted the existing asset
 
         Args:
             asset_id (str): Unique identifier identifying the asset to delete
+            args (dict): Adding optional arguments
 
         Returns:
             bool: Whether the asset has been deleted successfully
         """
         deleted_successfully = False
+
+        if 'message' in args:
+            print(f"Printing optional message: {args['message']}")
+
         print(f"Deleting filepath: {asset_id}...")
         try:
             if os.path.isfile(asset_id):

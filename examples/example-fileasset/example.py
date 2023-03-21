@@ -42,34 +42,43 @@ if __name__ == "__main__":
     sys.path.append(parent_dir)    
     from pyiaacsync import pyiaacsync
 
+    # Passing an optional random argument to demonstrate how **args can be used
+    
+    random_args = {}
+    ## uncomment line below to demonstrate how the random arguments can work
+    #random_args = {'message': 'hello world'}
+
     # Execute Iaac Sync and display any exceptions generated 
     try:
         if args.action == 'init':
 
             if args.init_state_file:
                 i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset, init=True, 
-                        init_force=args.init_force, init_state_file=args.init_state_file)
+                        init_force=args.init_force, init_state_file=args.init_state_file,
+                        **random_args)
             else:
                 i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset, init=True,
-                        init_force=args.init_force)
+                        init_force=args.init_force, **random_args)
 
         elif args.action == 'delete_assets':
-            i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset, delete_all_only=True)
+            i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset, delete_all_only=True,
+                    **random_args)
         
         elif args.action == 'validate_configs':
-            i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset, validate_configs_only=True)
+            i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset, validate_configs_only=True,
+                    args=random_args)
 
         elif args.action == 'sync_once':
-            i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset)
+            i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset, **random_args)
 
         elif args.action == 'sync': 
+            
             while True:
-                i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset)
+                i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAsset,
+                        **random_args)
 
                 print(f"Waiting for a second before resyncing...")
                 time.sleep(1)
-
-
 
     except Exception as e:
         print(f"Error running Iaac Sync. Exception: {e.__class__}, {e}")
