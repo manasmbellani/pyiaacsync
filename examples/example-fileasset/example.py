@@ -69,7 +69,7 @@ if __name__ == "__main__":
                 print(f"Waiting for a second before resyncing...")
                 time.sleep(1)
 
-        
+
 
     except Exception as e:
         print(f"Error running Iaac Sync. Exception: {e.__class__}, {e}")

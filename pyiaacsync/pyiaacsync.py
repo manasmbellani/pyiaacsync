@@ -35,7 +35,8 @@ class IaacSync:
     for version control) that contains various configs describing how to create assets using the `asset` functions
     """
     def __init__(self, iaac_sync_folder, state_file, asset, conf_file_extensions=CONFIG_FILE_EXTENSIONS, 
-            init=False, init_force=False, init_state_file=None, delete_all_only=False, validate_configs_only=False):
+            init=False, init_force=False, init_state_file=None, delete_all_only=False, validate_configs_only=False,
+            **args):
         """Function to sync spec configs defined in IAAC Sync folder 
 
         Args:
@@ -49,6 +50,7 @@ class IaacSync:
             init_force (bool, optional): Force initialization even if init file exists. Defaults to False.
             delete_all_only (bool, optional): Delete all the assets that have been created and clean the state file. Defaults to `False`.
             validate_configs_only (bool, optional): _description_. Defaults to False.
+            args (dict): Any additional optional args which would get passed to the methods defined in the asset class
         """
         self.iaac_sync_folder = iaac_sync_folder
         self.state_file = state_file
@@ -58,11 +60,11 @@ class IaacSync:
         if init:
             self.init_state(init_state_file, init_force)
         elif delete_all_only:
-            self.__delete_assets()
+            self.__delete_assets(**args)
         elif validate_configs_only:
-            self.__validate_configs()
+            self.__validate_configs(**args)
         else:
-            self.__sync_assets()
+            self.__sync_assets(**args)
 
     def init_state(self, init_state_file=None, init_force=False):
         """Create a new state file, or use an existing state file if it exists
@@ -76,7 +78,7 @@ class IaacSync:
                 if (not os.path.isfile(self.state_file)) or (init_force and os.path.isfile(self.state_file)):
                     with open(init_state_file, 'r') as f1:
                         with open(self.state_file, "w") as f2:
-                            f.write(f1.read())
+                            f2.write(f1.read())
                 else:
                     raise FileAlreadyExists(f"State file: {self.state_file} already exists. Use `init_force` flag to force re-creation")
             else:
@@ -107,22 +109,28 @@ class IaacSync:
             raise FileNotFoundException(f"State file: {self.state_file} not found. Was init run?")
         return was_state_read
 
-    def __delete_assets(self):
+    def __delete_assets(self, **args):
         """Delete all the assets that have been previously created, and update state file
+
+        Args:
+            args (dict): Any additional optional args which would get passed to the methods defined in the asset class
         """
         if self.read_state():
             if self.state:
                 state_config_paths = list(self.state.keys())
                 for config_path in state_config_paths:
                     asset_id = self.state[config_path].get('asset_id', None)
-                    if self.asset.delete(asset_id):
+                    if self.asset.delete(asset_id, **args):
                         # Remove the asset tracking from the state since it is no longer being tracked in git
                         del self.state[config_path]
                         
             self.write_state()
 
-    def __validate_configs(self):
+    def __validate_configs(self, **args):
         """Simply validate ALL configurations that exist in config files in IAAC Sync folder
+
+        Args:
+            args (dict): Any additional optional args which would get passed to the methods defined in the asset class
 
         Raises:
             ConfigFileInvalidSyntax: A config in the state file is not accurate
@@ -143,10 +151,13 @@ class IaacSync:
 
                 # Validate whether the config is correctly provided before syncing
                 if config:
-                    self.asset.validate(config)
+                    self.asset.validate(config, **args)
                     
-    def __sync_assets(self):
+    def __sync_assets(self, **args):
         """Sync assets by comparing the file hashes of config file and recreating file
+
+        Args:
+            args (dict): Any additional optional args which would get passed to the methods defined in the asset class
 
         Raises:
             FileNotFoundException: When the state file is not found
@@ -195,18 +206,18 @@ class IaacSync:
 
                         # Validate whether the config is correctly provided before syncing
                         if config:
-                            if self.asset.validate(config):
+                            if self.asset.validate(config, **args):
                                 
                                 # Checking if the asset that currently exists matches the config in 'git'
                                 is_asset_in_sync = True
                                 if asset_id:
-                                    is_asset_in_sync = self.asset.check(asset_id, config)
+                                    is_asset_in_sync = self.asset.check(asset_id, config, **args)
 
                                 # If the spec file has changed OR is brand new, then create the asset again
                                 if (not state_hash) or (state_hash != config_hash) or not is_asset_in_sync:
 
                                     # Recreate the asset
-                                    asset_id =  self.__recreate_asset(config_path, asset_id, config)
+                                    asset_id =  self.__recreate_asset(config_path, asset_id, config, **args)
 
                                     if asset_id:
                                         # Update the state file with the hash and the new asset ID created
@@ -224,7 +235,7 @@ class IaacSync:
                     if config_path not in all_config_files:
                         asset_id = self.state[config_path].get('asset_id', None)
                         if asset_id:
-                            if self.asset.delete(asset_id):
+                            if self.asset.delete(asset_id, **args):
                                 # Remove the asset tracking from the state since it is no longer being tracked in git
                                 del self.state[config_path]
 
@@ -249,19 +260,20 @@ class IaacSync:
         if os.path.isfile(file_path):
             with open(file_path,"rb") as f:
                 bytes = f.read()
-                readable_hash = hashlib.sha256(bytes).hexdigest();
+                readable_hash = hashlib.sha256(bytes).hexdigest()
         else:
             raise FileNotFoundException(f"File: {file_path} not found")
 
         return readable_hash
 
-    def __recreate_asset(self, file_path, existing_asset_id, config):
+    def __recreate_asset(self, file_path, existing_asset_id, config, **args):
         """Recreate (delete and create) an asset based on the 
 
         Args:
             file_path (str): File path to the config file (to be used when printing error messages)
             existing_asset_id (str): Existing asset ID to delete
             config (str): Config  representing the object
+            args (dict): Any additional optional args which would get passed to the methods defined in the asset class
 
         Returns:
             str: ID of the asset that was created successfully, otherwise None.
@@ -273,13 +285,13 @@ class IaacSync:
         asset_id = None
 
         if existing_asset_id:
-            if self.asset.delete(existing_asset_id):
-                asset_id = self.asset.create(config)
+            if self.asset.delete(existing_asset_id, **args):
+                asset_id = self.asset.create(config, **args)
             else:
                 raise AssetNotDeletedException(f"Asset with config in file {file_path} could not be deleted")
             
         else:
-            asset_id = self.asset.create(config)
+            asset_id = self.asset.create(config, **args)
 
             if not asset_id:
                 raise AssetNotCreatedException(f"Asset with config in file {file_path} could not be created")
