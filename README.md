@@ -99,3 +99,6 @@ python3 example.py -a delete_assets
 
 ## TODO
 - Add unit testing
+- Fix the comments for create asset
+- Fix the bug in deleteasset
+- Add an assumption: Assuming that the API works ok - every action performed once (no retry)
