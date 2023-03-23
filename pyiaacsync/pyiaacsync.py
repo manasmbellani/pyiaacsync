@@ -49,7 +49,7 @@ class IaacSync:
             init_state_file (str, optional): An optional initial state file to use when performing initialize. Defaults to None.
             init_force (bool, optional): Force initialization even if init file exists. Defaults to False.
             delete_all_only (bool, optional): Delete all the assets that have been created and clean the state file. Defaults to `False`.
-            validate_configs_only (bool, optional): _description_. Defaults to False.
+            validate_configs_only (bool, optional): Whether to only validate the configs (not execute any syncing). Defaults to False.
             args (dict): Any additional optional args which would get passed to the methods defined in the asset class
         """
         self.iaac_sync_folder = iaac_sync_folder
