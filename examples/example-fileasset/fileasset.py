@@ -86,12 +86,10 @@ class FileAsset:
         """Custom method to create the asset based on the config provided
 
         Args:
-            asset_id (str): Unique identifier identifying the asset which was built
-            config (dict): Configuration/Spec (source of truth)
             args (dict): Adding optional arguments
 
         Returns:
-            bool: Whether the syntax of the spec config file is correct 
+            bool: Whether the asset has been created successfully
         """
         asset_id = ''
 
@@ -112,14 +110,14 @@ class FileAsset:
         return asset_id
 
     def delete(asset_id, **args):
-        """Custom method to deleted the existing asset
+        """Custom method to delete the existing asset.        
 
         Args:
             asset_id (str): Unique identifier identifying the asset to delete
             args (dict): Adding optional arguments
 
         Returns:
-            bool: Whether the asset has been deleted successfully
+            bool: Whether the asset has been deleted successfully OR it no longer exists
         """
         deleted_successfully = False
 
