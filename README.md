@@ -1,15 +1,18 @@
 # PyIAACSync
 
 ## Introduction
-infrastructure-as-code tools such as Terraform and Palumi gaining popularity and increasingly becoming neceessary to support the principles of Site Reliability Engineering (SRE). 
+infrastructure-as-code tools such as Terraform and Palumi are gaining popularity and increasingly becoming neceessary to support the principles of Site Reliability Engineering (SRE). 
 
 However, there are a couple of disadvantages in existing tools in the market:
 - Terraform requires knowledge of golang to be able to sync assets
-- Both Terraform and Paulmi can be quite complex for beginners to manage and maintain
+- Both Terraform and Palumi plugins can be quite complex for beginners to manage and maintain - As in 2023, Terraform plugins require modules to be built in golang
+- In a shared environment, where some assets are being built manually while others are being built using automation, tools like Terraform Automation can fail if assets managed by automation are deleted
 
-PyIAACSync provides a framework which allows software engineering getting into infrastructure-as-code to easily create and sync assets which they have defined in YAML spec files, in a polled manner (non-event driven). The infrastructue can be `anything` (AWS asset, GCP asset, any SIEM detection rule) that 
+PyIAACSync provides a framework which allows software engineering teams getting into infrastructure-as-code to easily create and sync assets which they have defined in YAML spec files, in a polled manner (non-event driven). The infrastructue components can be `anything` (AWS asset, GCP asset, any SIEM detection rule) that can be:
+    a. described in YAML files, and 
+    b. can be read, created or deleted via API calls
 
-Software engineers need to create the following:
+Software engineers need to create the following to leverage `pyiaacsync`:
 1. A folder (`iaac_sync_folder`) that contains the specs/configs for the infrastructure to create
 2. A simple asset python file that contains a class describing the asset with the following `static` functions:
    - validate: to validate whether the spec/config that has been supplied in the 
