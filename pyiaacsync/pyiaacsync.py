@@ -288,36 +288,3 @@ class IaacSync:
             raise FileNotFoundException(f"File: {file_path} not found")
 
         return readable_hash
-
-    def __recreate_asset(self, file_path, existing_asset_id, config, **args):
-        """Recreate (delete and create) an asset based on the 
-
-        Args:
-            file_path (str): File path to the config file (to be used when printing error messages)
-            existing_asset_id (str): Existing asset ID to delete
-            config (str): Config  representing the object
-            args (dict): Any additional optional args which would get passed to the methods defined in the asset class
-
-        Returns:
-            str: ID of the asset that was created successfully, otherwise None.
-
-        Raises:
-            AssetNotCreatedException: If the asset could not be created
-            AssetNotDeletedException: If the asset could not be deleted
-        """
-        asset_id = None
-
-        if existing_asset_id:
-            if self.asset.delete(existing_asset_id, **args):
-                asset_id = self.asset.create(config, **args)
-            else:
-                raise AssetNotDeletedException(f"Asset with config in file {file_path} could not be deleted")
-            
-        else:
-            asset_id = self.asset.create(config, **args)
-
-            if not asset_id:
-                raise AssetNotCreatedException(f"Asset with config in file {file_path} could not be created")
-            
-        return asset_id
-
