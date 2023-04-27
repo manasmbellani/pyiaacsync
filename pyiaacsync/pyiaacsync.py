@@ -116,14 +116,20 @@ class IaacSync:
             args (dict): Any additional optional args which would get passed to the methods defined in the asset class
         """
         if self.read_state():
-            if self.state:
-                state_config_paths = list(self.state.keys())
-                for config_path in state_config_paths:
-                    asset_id = self.state[config_path].get('asset_id', None)
-                    if self.asset.delete(asset_id, **args):
-                        # Remove the asset tracking from the state since it is no longer being tracked in git
-                        del self.state[config_path]
-                        
+            try:
+                if self.state:
+                    state_config_paths = list(self.state.keys())
+                    for config_path in state_config_paths:
+                        asset_id = self.state[config_path].get('asset_id', None)
+                        if self.asset.delete(asset_id, **args):
+                            # Remove the asset tracking from the state since it is no longer being tracked in git
+                            del self.state[config_path]
+            except Exception as e:
+                # Ensure that the current state is written back irrespective of exception that occurs
+                self.write_state()
+                # Re-raise the error
+                raise
+                
             self.write_state()
 
     def __validate_configs(self, **args):
@@ -166,78 +172,95 @@ class IaacSync:
         all_config_files = []
         
         if self.read_state():
-            
-            # Loop through each config fie in the IAAC Sync folder
-            for dir_path, _, files in os.walk(self.iaac_sync_folder):
+            try:
+                # Loop through each config fie in the IAAC Sync folder
+                for dir_path, _, files in os.walk(self.iaac_sync_folder):
 
-                for f in files:
-                    
-                    # Work only with the conf files
-                    if any([f.endswith(ext) for ext in self.conf_file_extensions]):
+                    for f in files:
                         
-                        config_path = os.path.join(dir_path, f)
+                        # Work only with the conf files
+                        if any([f.endswith(ext) for ext in self.conf_file_extensions]):
+                            
+                            config_path = os.path.join(dir_path, f)
 
-                        # Keep track of ALL the asset config files
-                        all_config_files.append(config_path)
+                            # Keep track of ALL the asset config files
+                            all_config_files.append(config_path)
 
-                        # Calculate the hash for config which will be checked to see if they have changed
-                        config_hash = self.__calculate_hash(config_path)
-                        state_conf = self.state.get(config_path, None)
-                        
-                        # Get the hash of existing assets. If it doesn't exist then 
-                        state_hash = ''
-                        asset_id = ''
-                        if state_conf:
-                            state_hash = state_conf['hash']
-                            asset_id = state_conf['asset_id']
-                        else:
-                            self.state[config_path] = {
-                                'asset_id': '',
-                                'hash': '',
-                            }
+                            # Calculate the hash for config which will be checked to see if they have changed
+                            config_hash = self.__calculate_hash(config_path)
+                            state_conf = self.state.get(config_path, None)
+                            
+                            # Get the hash of existing assets. If it doesn't exist then 
+                            state_hash = ''
+                            asset_id = ''
+                            if state_conf:
+                                state_hash = state_conf['hash']
+                                asset_id = state_conf['asset_id']
+                            else:
+                                self.state[config_path] = {
+                                    'asset_id': '',
+                                    'hash': '',
+                                }
 
-                        # Read the config from file
-                        config = ''
-                        try:
-                            with open(config_path, "r") as f:
-                                config = yaml.safe_load(f)
-                        except Exception as e:
-                            raise ConfigFileInvalidSyntax(f"Config file: {config_path} syntax invalid. Error: {e.__class__}, {e}")
+                            # Read the config from file
+                            config = ''
+                            try:
+                                with open(config_path, "r") as f:
+                                    config = yaml.safe_load(f)
+                            except Exception as e:
+                                self.write_state()
+                                raise ConfigFileInvalidSyntax(f"Config file: {config_path} syntax invalid. Error: {e.__class__}, {e}")
 
-                        # Validate whether the config is correctly provided before syncing
-                        if config:
-                            if self.asset.validate(config, **args):
-                                
-                                # Checking if the asset that currently exists matches the config in 'git'
-                                is_asset_in_sync = True
-                                if asset_id:
-                                    is_asset_in_sync = self.asset.check(asset_id, config, **args)
-
-                                # If the spec file has changed OR is brand new, then create the asset again
-                                if (not state_hash) or (state_hash != config_hash) or not is_asset_in_sync:
-
-                                    # Recreate the asset
-                                    asset_id =  self.__recreate_asset(config_path, asset_id, config, **args)
-
+                            # Validate whether the config is correctly provided before syncing
+                            if config:
+                                if self.asset.validate(config, **args):
+                                    
+                                    # Checking if the asset that currently exists matches the config in 'git'
+                                    is_asset_in_sync = True
                                     if asset_id:
-                                        # Update the state file with the hash and the new asset ID created
-                                        self.state[config_path]['hash'] = config_hash
-                                        self.state[config_path]['asset_id'] = asset_id 
+                                        is_asset_in_sync = self.asset.check(asset_id, config, **args)
 
-            # Delete any assets which are not in the config spec (git)
-            if self.state:
+                                    # If the spec file has changed OR is brand new, then re-create the asset (delete, then create)
+                                    if (not state_hash) or (state_hash != config_hash) or not is_asset_in_sync:
 
-                # Read all the config spec keys and loop through them
-                state_config_paths = list(self.state.keys())
-                for config_path in state_config_paths:
+                                        # Recreate the asset by first attempting to delete it
+                                        if asset_id:
+                                            if self.asset.delete(asset_id, **args):
+                                                if config_path in self.state:
+                                                    # Update the state file that asset has been deleted
+                                                    del self.state[config_path]
+                                            else:
+                                                raise AssetNotDeletedException(f"Asset with config in file {config_path} could not be deleted")
+                                            
+                                        # Try to create the asset again now
+                                        asset_id = self.asset.create(config, **args)
+                                        if asset_id:
+                                            if config_path not in self.state:
+                                                self.state[config_path] = {}
+                                            # Update the state file with the hash and the new asset ID created
+                                            self.state[config_path]['hash'] = config_hash
+                                            self.state[config_path]['asset_id'] = asset_id
 
-                    # Check if any are not in the config specs
-                    if config_path not in all_config_files:
-                        asset_id = self.state[config_path].get('asset_id', None)
-                        if asset_id:
-                            if self.asset.delete(asset_id, **args):
-                                # Remove the asset tracking from the state since it is no longer being tracked in git
-                                del self.state[config_path]
+                                        if not asset_id:
+                                            raise AssetNotCreatedException(f"Asset with config in file {config_path} could not be created")
+            
+                # Delete any assets which are not in the config spec (git)
+                if self.state:
+
+                    # Read all the config spec keys and loop through them
+                    state_config_paths = list(self.state.keys())
+                    for config_path in state_config_paths:
+
+                        # Check if any are not in the config specs
+                        if config_path not in all_config_files:
+                            asset_id = self.state[config_path].get('asset_id', None)
+                            if asset_id:
+                                if self.asset.delete(asset_id, **args):
+                                    # Remove the asset tracking from the state since it is no longer being tracked in git
+                                    del self.state[config_path]
+            except Exception as e:
+                self.write_state()
+                raise
 
             self.write_state()
 
