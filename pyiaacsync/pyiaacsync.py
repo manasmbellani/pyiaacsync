@@ -15,6 +15,11 @@ class AssetNotDeletedException(Exception):
     """
     pass
 
+class AssetNotUpdatedException(Exception):
+    """Exception generated when an asset is not updated
+    """
+    pass
+
 class FileNotFoundException(Exception):
     """Exception generated when a file has not been found
     """
@@ -225,25 +230,40 @@ class IaacSync:
 
                                         # Recreate the asset by first attempting to delete it
                                         if asset_id:
-                                            if self.asset.delete(asset_id, **args):
-                                                if config_path in self.state:
-                                                    # Update the state file that asset has been deleted
-                                                    del self.state[config_path]
-                                            else:
-                                                raise AssetNotDeletedException(f"Asset with config in file {config_path} could not be deleted")
-                                            
-                                        # Try to create the asset again now
-                                        asset_id = self.asset.create(config, **args)
-                                        if asset_id:
-                                            if config_path not in self.state:
-                                                self.state[config_path] = {}
-                                            # Update the state file with the hash and the new asset ID created
-                                            self.state[config_path]['hash'] = config_hash
-                                            self.state[config_path]['asset_id'] = asset_id
 
+                                            # Check if there is an update function in the asset, if yes, then call it
+                                            if hasattr(self.asset, 'update') and callable(self.asset.update):
+                                                if self.asset.update(asset_id, config, **args):
+                                                    # Call the update function, and ensure that the same asset ID is returned
+                                                    # if asset ID not returned then there was an error
+                                                    self.state[config_path]['hash'] = config_hash
+                                                    self.state[config_path]['asset_id'] = asset_id
+                                                else:
+                                                    raise AssetNotUpdatedException(f"Asset with config in file {config_path} could not be updated")
+
+                                            else:
+                                                if self.asset.delete(asset_id, **args):
+                                                    # Asset ID deleted
+                                                    asset_id = ''
+                                                    if config_path in self.state:
+                                                        # Update the state file that asset has been deleted
+                                                        del self.state[config_path]
+                                                else:
+                                                    raise AssetNotDeletedException(f"Asset with config in file {config_path} could not be deleted")
+                                        
+                                        # Try to create the asset again now, if it is deleted
                                         if not asset_id:
-                                            raise AssetNotCreatedException(f"Asset with config in file {config_path} could not be created")
-            
+                                            asset_id = self.asset.create(config, **args)
+                                            if asset_id:
+                                                if config_path not in self.state:
+                                                    self.state[config_path] = {}
+                                                # Update the state file with the hash and the new asset ID created
+                                                self.state[config_path]['hash'] = config_hash
+                                                self.state[config_path]['asset_id'] = asset_id
+
+                                            if not asset_id:
+                                                raise AssetNotCreatedException(f"Asset with config in file {config_path} could not be created")
+                
                 # Delete any assets which are not in the config spec (git)
                 if self.state:
 
