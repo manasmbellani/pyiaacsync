@@ -15,10 +15,11 @@ PyIAACSync provides a framework which allows software engineering teams getting 
 Software engineers need to create the following to leverage `pyiaacsync`:
 1. A folder (`iaac_sync_folder`) that contains the specs/configs for the infrastructure to create
 2. A simple asset python file that contains a class describing the asset with the following `static` functions:
-   - validate: to validate whether the spec/config that has been supplied in the 
-   - create: to create the asset via the supplied spec/config
-   - delete: to delete that has been supplied via the spec/config
-   - check: to check whether the asset that has been deployed matches the spec/config aka `integrity check`. If not, the asset will be re-created
+   - `validate`: to validate whether the spec/config that has been supplied in the 
+   - `create`: to create the asset via the supplied spec/config
+   - `delete`: to delete that has been supplied via the spec/config
+   - `check`: to check whether the asset that has been deployed matches the spec/config aka `integrity check`. If not, the asset will be re-created
+   - `update` (Optional): to be called to update an existing asset, eg when the configuration gets changed. If not defined for the assets , then the `delete` / `create` gets called.
 
 Please see `Usage` section that describes the example in more detail
 

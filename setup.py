@@ -20,7 +20,7 @@ with open('README.md', 'r') as f:
 
 setup(
     name="pyiaacsync",
-    version="0.5",
+    version="0.6",
     packages=find_packages(),
     install_requires=requirements,
     description=project_description,
