@@ -41,7 +41,7 @@ class IaacSync:
     """
     def __init__(self, iaac_sync_folder, state_file, asset, conf_file_extensions=CONFIG_FILE_EXTENSIONS, 
             init=False, init_force=False, init_state_file=None, delete_all_only=False, validate_configs_only=False,
-            **args):
+            delete_if_asset_not_updated=True, **args):
         """Function to sync spec configs defined in IAAC Sync folder 
 
         Args:
@@ -55,12 +55,15 @@ class IaacSync:
             init_force (bool, optional): Force initialization even if init file exists. Defaults to False.
             delete_all_only (bool, optional): Delete all the assets that have been created and clean the state file. Defaults to `False`.
             validate_configs_only (bool, optional): Whether to only validate the configs (not execute any syncing). Defaults to False.
+            delete_if_asset_not_updated (bool, optional): If True, then asset is not updated successful, then delete the asset to be 
+                re-created. Otherwise, create the asset again
             args (dict): Any additional optional args which would get passed to the methods defined in the asset class
         """
         self.iaac_sync_folder = iaac_sync_folder
         self.state_file = state_file
         self.asset = asset
         self.conf_file_extensions = conf_file_extensions
+        self.delete_if_asset_not_updated = delete_if_asset_not_updated
         self.state = {}
         if init:
             self.init_state(init_state_file, init_force)
@@ -239,7 +242,17 @@ class IaacSync:
                                                     self.state[config_path]['hash'] = config_hash
                                                     self.state[config_path]['asset_id'] = asset_id
                                                 else:
-                                                    raise AssetNotUpdatedException(f"Asset with config in file {config_path} could not be updated")
+                                                    if self.delete_if_asset_not_updated:
+                                                        if self.asset.delete(asset_id, **args):
+                                                            # Asset ID deleted
+                                                            asset_id = ''
+                                                            if config_path in self.state:
+                                                                # Update the state file that asset has been deleted
+                                                                del self.state[config_path]
+                                                        else:
+                                                            raise AssetNotDeletedException(f"Asset with config in file {config_path} could not be deleted")
+                                                    else:
+                                                        raise AssetNotUpdatedException(f"Asset with config in file {config_path} could not be updated")
 
                                             else:
                                                 if self.asset.delete(asset_id, **args):

@@ -56,6 +56,8 @@ parameters as a dict that can be used by the asset class. Uncomment the `random_
     #random_args = {'message': 'hello world'}
 ```
 
+*Note*: An additional example has been added in folder called `example-fileasset-with-update` where the `fileassetwupd.py` is a python file which additionally includes the `update` method in the `FileAssetWithUpdate` class. The commands listed below also apply to files in this folder.
+
 ### Actions
 
 #### init

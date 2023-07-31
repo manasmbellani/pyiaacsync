@@ -25,11 +25,20 @@ class FileAssetWithUpdate:
         """
         asset_updated_successfully = False
         print(f"Updating file with Asset ID: {asset_id}...")
-        asset_id = FileAssetWithUpdate.create(config, **args)
-        if asset_id:
-            asset_updated_successfully = True
-        return asset_updated_successfully
+        try:
+            text = config['text']
+            filepath = config['filepath']
+            if os.path.isfile(filepath):
+                print(f"Writing text: {text} to filepath: {filepath}...")
+                with open(filepath, 'w') as f:
+                    f.write(text)
+                asset_updated_successfully = True
+            else:
+                print(f"File: {filepath} not found")
+        except Exception as e:
+            print(f"Error creating asset with config: {config}. Error: {e.__class__}, {e}")
 
+        return asset_updated_successfully
 
     def validate(config, **args):
         """Custom method to validate whether the syntax of the config file provided is correct
