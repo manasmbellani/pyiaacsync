@@ -60,6 +60,8 @@ parameters as a dict that can be used by the asset class. Uncomment the `random_
 
 *Note*: By default, pyiaacsync will immediately stop syncing assets if there are unexpected errors. This can be over-ridden by setting `true` to `continue_sync_on_error` and specifying an error handler `callback_on_sync_error` which will execute the error handler and continue the processing of remaining assets after executing `callback_on_sync_error` method. An example of this is included in `example-fileasset-with-update`.
 
+*Assumption*: Note that all sync, delete, create, update actions are currently performed once only from pyiaacsync. Any retries must be built in the asset python file
+
 ### Actions
 
 #### init
@@ -108,6 +110,3 @@ python3 example.py -a delete_assets
 
 ## TODO
 - Add unit testing
-- Fix the comments for create asset
-- Fix the bug in deleteasset
-- Add an assumption: Assuming that the API works ok - every action performed once (no retry)
