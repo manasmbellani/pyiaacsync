@@ -41,7 +41,7 @@ class IaacSync:
     """
     def __init__(self, iaac_sync_folder, state_file, asset, conf_file_extensions=CONFIG_FILE_EXTENSIONS, 
             init=False, init_force=False, init_state_file=None, delete_all_only=False, validate_configs_only=False,
-            delete_if_asset_not_updated=True, **args):
+            delete_if_asset_not_updated=True, continue_sync_on_error=False, callback_on_sync_error=None, **args):
         """Function to sync spec configs defined in IAAC Sync folder 
 
         Args:
@@ -57,6 +57,10 @@ class IaacSync:
             validate_configs_only (bool, optional): Whether to only validate the configs (not execute any syncing). Defaults to False.
             delete_if_asset_not_updated (bool, optional): If True, then asset is not updated successful, then delete the asset to be 
                 re-created. Otherwise, create the asset again
+            continue_sync_on_error (bool): Whether or not to continue sync on error. If set to True, then `callback_on_sync_error` is called 
+                with error class and message as the argument
+            callback_on_sync_error (func): Function of format `def callback_on_sync_error(err_class, err_msg)` which has error class and 
+                error message as arguments
             args (dict): Any additional optional args which would get passed to the methods defined in the asset class
         """
         self.iaac_sync_folder = iaac_sync_folder
@@ -64,6 +68,8 @@ class IaacSync:
         self.asset = asset
         self.conf_file_extensions = conf_file_extensions
         self.delete_if_asset_not_updated = delete_if_asset_not_updated
+        self.continue_sync_on_error = continue_sync_on_error
+        self.callback_on_sync_error = callback_on_sync_error
         self.state = {}
         if init:
             self.init_state(init_state_file, init_force)
@@ -128,10 +134,19 @@ class IaacSync:
                 if self.state:
                     state_config_paths = list(self.state.keys())
                     for config_path in state_config_paths:
-                        asset_id = self.state[config_path].get('asset_id', None)
-                        if self.asset.delete(asset_id, **args):
-                            # Remove the asset tracking from the state since it is no longer being tracked in git
-                            del self.state[config_path]
+                        try:
+                            asset_id = self.state[config_path].get('asset_id', None)
+                            if self.asset.delete(asset_id, **args):
+                                # Remove the asset tracking from the state since it is no longer being tracked in git
+                                del self.state[config_path]
+                        except Exception as e:
+                            # Execute callback if set by the user, otherwise raise this error to next parent
+                            # exception
+                            if self.continue_sync_on_error:
+                                self.write_state()
+                                self.callback_on_sync_error(e.__class__, str(e))
+                            else:
+                                raise
             except Exception as e:
                 # Ensure that the current state is written back irrespective of exception that occurs
                 self.write_state()
@@ -188,94 +203,103 @@ class IaacSync:
                         
                         # Work only with the conf files
                         if any([f.endswith(ext) for ext in self.conf_file_extensions]):
-                            
-                            config_path = os.path.join(dir_path, f)
-
-                            # Keep track of ALL the asset config files
-                            all_config_files.append(config_path)
-
-                            # Calculate the hash for config which will be checked to see if they have changed
-                            config_hash = self.__calculate_hash(config_path)
-                            state_conf = self.state.get(config_path, None)
-                            
-                            # Get the hash of existing assets. If it doesn't exist then 
-                            state_hash = ''
-                            asset_id = ''
-                            if state_conf:
-                                state_hash = state_conf['hash']
-                                asset_id = state_conf['asset_id']
-                            else:
-                                self.state[config_path] = {
-                                    'asset_id': '',
-                                    'hash': '',
-                                }
-
-                            # Read the config from file
-                            config = ''
                             try:
-                                with open(config_path, "r") as f:
-                                    config = yaml.safe_load(f)
-                            except Exception as e:
-                                self.write_state()
-                                raise ConfigFileInvalidSyntax(f"Config file: {config_path} syntax invalid. Error: {e.__class__}, {e}")
+                                config_path = os.path.join(dir_path, f)
 
-                            # Validate whether the config is correctly provided before syncing
-                            if config:
-                                if self.asset.validate(config, **args):
-                                    
-                                    # Checking if the asset that currently exists matches the config in 'git'
-                                    is_asset_in_sync = True
-                                    if asset_id:
-                                        is_asset_in_sync = self.asset.check(asset_id, config, **args)
+                                # Keep track of ALL the asset config files
+                                all_config_files.append(config_path)
 
-                                    # If the spec file has changed OR is brand new, then re-create the asset (delete, then create)
-                                    if (not state_hash) or (state_hash != config_hash) or not is_asset_in_sync:
+                                # Calculate the hash for config which will be checked to see if they have changed
+                                config_hash = self.__calculate_hash(config_path)
+                                state_conf = self.state.get(config_path, None)
+                                
+                                # Get the hash of existing assets. If it doesn't exist then 
+                                state_hash = ''
+                                asset_id = ''
+                                if state_conf:
+                                    state_hash = state_conf['hash']
+                                    asset_id = state_conf['asset_id']
+                                else:
+                                    self.state[config_path] = {
+                                        'asset_id': '',
+                                        'hash': '',
+                                    }
 
-                                        # Recreate the asset by first attempting to delete it
+                                # Read the config from file
+                                config = ''
+                                try:
+                                    with open(config_path, "r") as f:
+                                        config = yaml.safe_load(f)
+                                except Exception as e:
+                                    self.write_state()
+                                    raise ConfigFileInvalidSyntax(f"Config file: {config_path} syntax invalid. Error: {e.__class__}, {e}")
+
+                                # Validate whether the config is correctly provided before syncing
+                                if config:
+                                    if self.asset.validate(config, **args):
+                                        
+                                        # Checking if the asset that currently exists matches the config in 'git'
+                                        is_asset_in_sync = True
                                         if asset_id:
+                                            is_asset_in_sync = self.asset.check(asset_id, config, **args)
 
-                                            # Check if there is an update function in the asset, if yes, then call it
-                                            if hasattr(self.asset, 'update') and callable(self.asset.update):
-                                                if self.asset.update(asset_id, config, **args):
-                                                    # Call the update function, and ensure that the same asset ID is returned
-                                                    # if asset ID not returned then there was an error
+                                        # If the spec file has changed OR is brand new, then re-create the asset (delete, then create)
+                                        if (not state_hash) or (state_hash != config_hash) or not is_asset_in_sync:
+
+                                            # Recreate the asset by first attempting to delete it
+                                            if asset_id:
+
+                                                # Check if there is an update function in the asset, if yes, then call it
+                                                if hasattr(self.asset, 'update') and callable(self.asset.update):
+                                                    if self.asset.update(asset_id, config, **args):
+                                                        # Call the update function, and ensure that the same asset ID is returned
+                                                        # if asset ID not returned then there was an error
+                                                        self.state[config_path]['hash'] = config_hash
+                                                        self.state[config_path]['asset_id'] = asset_id
+                                                    else:
+                                                        if self.delete_if_asset_not_updated:
+                                                            if self.asset.delete(asset_id, **args):
+                                                                # Asset ID deleted
+                                                                asset_id = ''
+                                                                if config_path in self.state:
+                                                                    # Update the state file that asset has been deleted
+                                                                    del self.state[config_path]
+                                                            else:
+                                                                raise AssetNotDeletedException(f"Asset with config in file {config_path} could not be deleted")
+                                                        else:
+                                                            raise AssetNotUpdatedException(f"Asset with config in file {config_path} could not be updated")
+
+                                                else:
+                                                    if self.asset.delete(asset_id, **args):
+                                                        # Asset ID deleted
+                                                        asset_id = ''
+                                                        if config_path in self.state:
+                                                            # Update the state file that asset has been deleted
+                                                            del self.state[config_path]
+                                                    else:
+                                                        raise AssetNotDeletedException(f"Asset with config in file {config_path} could not be deleted")
+                                            
+                                            # Try to create the asset again now, if it is deleted
+                                            if not asset_id:
+                                                asset_id = self.asset.create(config, **args)
+                                                if asset_id:
+                                                    if config_path not in self.state:
+                                                        self.state[config_path] = {}
+                                                    # Update the state file with the hash and the new asset ID created
                                                     self.state[config_path]['hash'] = config_hash
                                                     self.state[config_path]['asset_id'] = asset_id
-                                                else:
-                                                    if self.delete_if_asset_not_updated:
-                                                        if self.asset.delete(asset_id, **args):
-                                                            # Asset ID deleted
-                                                            asset_id = ''
-                                                            if config_path in self.state:
-                                                                # Update the state file that asset has been deleted
-                                                                del self.state[config_path]
-                                                        else:
-                                                            raise AssetNotDeletedException(f"Asset with config in file {config_path} could not be deleted")
-                                                    else:
-                                                        raise AssetNotUpdatedException(f"Asset with config in file {config_path} could not be updated")
 
-                                            else:
-                                                if self.asset.delete(asset_id, **args):
-                                                    # Asset ID deleted
-                                                    asset_id = ''
-                                                    if config_path in self.state:
-                                                        # Update the state file that asset has been deleted
-                                                        del self.state[config_path]
-                                                else:
-                                                    raise AssetNotDeletedException(f"Asset with config in file {config_path} could not be deleted")
-                                        
-                                        # Try to create the asset again now, if it is deleted
-                                        if not asset_id:
-                                            asset_id = self.asset.create(config, **args)
-                                            if asset_id:
-                                                if config_path not in self.state:
-                                                    self.state[config_path] = {}
-                                                # Update the state file with the hash and the new asset ID created
-                                                self.state[config_path]['hash'] = config_hash
-                                                self.state[config_path]['asset_id'] = asset_id
+                                                if not asset_id:
+                                                    raise AssetNotCreatedException(f"Asset with config in file {config_path} could not be created")
+                            except Exception as e:
+                                # Execute callback if set by the user, otherwise raise this error to next parent
+                                # exception
+                                if self.continue_sync_on_error:
+                                    self.write_state()
+                                    self.callback_on_sync_error(e.__class__, str(e))
+                                else:
+                                    raise
 
-                                            if not asset_id:
-                                                raise AssetNotCreatedException(f"Asset with config in file {config_path} could not be created")
                 
                 # Delete any assets which are not in the config spec (git)
                 if self.state:
@@ -283,14 +307,24 @@ class IaacSync:
                     # Read all the config spec keys and loop through them
                     state_config_paths = list(self.state.keys())
                     for config_path in state_config_paths:
+                        try:
+                            # Check if any are not in the config specs
+                            if config_path not in all_config_files:
+                                
+                                asset_id = self.state[config_path].get('asset_id', None)
+                                if asset_id:
+                                    if self.asset.delete(asset_id, **args):
+                                        # Remove the asset tracking from the state since it is no longer being tracked in git
+                                        del self.state[config_path]
+                        except Exception as e:
+                            # Execute callback if set by the user, otherwise raise this error to next parent
+                            # exception
+                            if self.continue_sync_on_error:
+                                self.write_state()
+                                self.callback_on_sync_error(e.__class__, str(e))
+                            else:
+                                raise
 
-                        # Check if any are not in the config specs
-                        if config_path not in all_config_files:
-                            asset_id = self.state[config_path].get('asset_id', None)
-                            if asset_id:
-                                if self.asset.delete(asset_id, **args):
-                                    # Remove the asset tracking from the state since it is no longer being tracked in git
-                                    del self.state[config_path]
             except Exception as e:
                 self.write_state()
                 raise

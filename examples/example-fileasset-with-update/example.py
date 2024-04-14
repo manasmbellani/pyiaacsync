@@ -26,6 +26,9 @@ sync_once: To sync the assets from spec/configs once only
 sync: To continuously sync the assets from spec/configs continuously
 """
 
+def sync_error_handler(err_class, err_msg):
+    """Function called when sync error handler encounters an error"""
+    print(f"Error syncing an asset. Error: {err_class}, {err_msg}")
 
 if __name__ == "__main__":
 
@@ -61,20 +64,24 @@ if __name__ == "__main__":
                         init_force=args.init_force, **random_args)
 
         elif args.action == 'delete_assets':
-            i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAssetWithUpdate, delete_all_only=True,
-                    **random_args)
+            i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAssetWithUpdate, delete_all_only=True, 
+                                    continue_sync_on_error=True, callback_on_sync_error=sync_error_handler, 
+                                    **random_args)
         
         elif args.action == 'validate_configs':
             i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAssetWithUpdate, validate_configs_only=True,
                     args=random_args)
 
         elif args.action == 'sync_once':
-            i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAssetWithUpdate, **random_args)
+            i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAssetWithUpdate, 
+                                    continue_sync_on_error=True, callback_on_sync_error=sync_error_handler, 
+                                    **random_args)
 
         elif args.action == 'sync': 
             
             while True:
                 i = pyiaacsync.IaacSync('exampleconf', 'out-teststate.yaml', FileAssetWithUpdate,
+                        continue_sync_on_error=True, callback_on_sync_error=sync_error_handler,
                         **random_args)
 
                 print(f"Waiting for a second before resyncing...")

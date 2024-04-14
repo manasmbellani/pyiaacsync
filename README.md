@@ -58,6 +58,8 @@ parameters as a dict that can be used by the asset class. Uncomment the `random_
 
 *Note*: An additional example has been added in folder called `example-fileasset-with-update` where the `fileassetwupd.py` is a python file which additionally includes the `update` method in the `FileAssetWithUpdate` class. The commands listed below also apply to files in this folder.
 
+*Note*: By default, pyiaacsync will immediately stop syncing assets if there are unexpected errors. This can be over-ridden by setting `true` to `continue_sync_on_error` and specifying an error handler `callback_on_sync_error` which will execute the error handler and continue the processing of remaining assets after executing `callback_on_sync_error` method. An example of this is included in `example-fileasset-with-update`.
+
 ### Actions
 
 #### init
@@ -86,6 +88,7 @@ python3 example.py -a validate_configs
 #### sync
 
 To sync the assets based on the spec/configs folder continuously - this will create the files as per the configs in the folder.
+
 Any changes made to the files the next time will be reset.
 ```
 python3 example.py -a sync
